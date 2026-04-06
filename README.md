@@ -43,7 +43,14 @@ python app.py
 ```
 The API will be available at `http://localhost:5000`.
 
-### 4. Authentication (Mock)
+### 4. Deploy to Vercel
+This project is configured for Vercel out of the box. 
+1. Push your changes to GitHub.
+2. Connect your repo to Vercel.
+3. Vercel will automatically detect `vercel.json` and deploy the Flask app.
+*Note: SQLite data will reset on every serverless function cold start in `/tmp`.*
+
+### 5. Authentication (Mock)
 This project uses a custom header `X-User-ID` to simulate authentication for development and testing.
 - An initial **Admin** user is seeded on the first run with `id=1`.
 - To act as an Admin, include the header `X-User-ID: 1` in your API requests.

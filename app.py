@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from models import db, User, FinancialRecord, RoleType, UserStatus
@@ -7,7 +8,14 @@ from datetime import datetime
 from sqlalchemy import func
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///finance.db'
+
+# Handle SQLite path for serverless (writable /tmp folder)
+if os.environ.get('VERCEL'):
+    db_path = '/tmp/finance.db'
+else:
+    db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'finance.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
