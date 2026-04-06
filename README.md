@@ -44,11 +44,15 @@ python app.py
 The API will be available at `http://localhost:5000`.
 
 ### 4. Deploy to Vercel
-This project is configured for Vercel out of the box. 
-1. Push your changes to GitHub.
-2. Connect your repo to Vercel.
-3. Vercel will automatically detect `vercel.json` and deploy the Flask app.
-*Note: SQLite data will reset on every serverless function cold start in `/tmp`.*
+This project is optimized for deployment as a **Vercel Serverless Function**.
+
+1. **Configuration**: The project includes a `vercel.json` file that configures the Python runtime and routes all traffic to `app.py`.
+2. **Database Handling**: In a serverless environment, the filesystem is read-only except for the `/tmp` directory. The application is configured to automatically detect the Vercel environment and move the SQLite database to `/tmp/finance.db`.
+3. **Deployment Steps**:
+   - Push your code to a GitHub repository.
+   - Import the repository into Vercel.
+   - Vercel will automatically detect the configuration and deploy.
+4. **Important Note**: SQLite in a serverless environment is **ephemeral**. Data will be reset when the serverless function cold starts. For production use, connect a persistent database like Vercel Postgres.
 
 ### 5. Authentication (Mock)
 This project uses a custom header `X-User-ID` to simulate authentication for development and testing.
