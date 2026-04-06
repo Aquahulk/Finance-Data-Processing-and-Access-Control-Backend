@@ -32,11 +32,35 @@ def bad_request(e):
 def not_found(e):
     return jsonify({"error": "Resource not found"}), 404
 
+@app.route('/')
+def index():
+    return jsonify({
+        "message": "Welcome to the Finance Data Processing API",
+        "endpoints": {
+            "auth_mock": "Use X-User-ID header (1 for Admin)",
+            "users": "/users",
+            "records": "/records",
+            "summary": "/dashboard/summary"
+        }
+    })
+
 @app.errorhandler(500)
 def server_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 # User Management (Admin only)
+@app.route('/users', methods=['GET'])
+@admin_required
+def list_users():
+    users = User.query.all()
+    # Formatting response to match requested structure
+    return jsonify([{
+        "id": user.id,
+        "name": user.username,
+        "role": user.role,
+        "status": user.status
+    } for user in users])
+
 @app.route('/users', methods=['POST'])
 @admin_required
 def create_user():
@@ -48,12 +72,6 @@ def create_user():
         return user_schema.jsonify(user), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-
-@app.route('/users', methods=['GET'])
-@admin_required
-def list_users():
-    users = User.query.all()
-    return users_schema.jsonify(users)
 
 @app.route('/users/<int:id>', methods=['PATCH'])
 @admin_required
@@ -67,10 +85,10 @@ def update_user(id):
     db.session.commit()
     return user_schema.jsonify(user)
 
-# Financial Records (RBAC)
-@app.route('/records', methods=['POST'])
-@admin_required # Only admin can create records as per requirement
-def create_record():
+# Financial Transactions (RBAC)
+@app.route('/transactions', methods=['POST'])
+@admin_required # Only admin can create
+def create_transaction():
     data = request.json
     try:
         record = financial_record_schema.load(data)
@@ -81,16 +99,15 @@ def create_record():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/records', methods=['GET'])
-@viewer_required # Viewers, analysts, admins can view
-def list_records():
+@app.route('/transactions', methods=['GET'])
+@analyst_required # Analysts and admins can view list
+def list_transactions():
     query = FinancialRecord.query
     
-    # Filtering
+    # Filtering as per request
     type = request.args.get('type')
     category = request.args.get('category')
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date = request.args.get('startDate') # CamelCase as requested
 
     if type:
         query = query.filter(FinancialRecord.type == type)
@@ -98,15 +115,20 @@ def list_records():
         query = query.filter(FinancialRecord.category == category)
     if start_date:
         query = query.filter(FinancialRecord.date >= datetime.fromisoformat(start_date))
-    if end_date:
-        query = query.filter(FinancialRecord.date <= datetime.fromisoformat(end_date))
     
     records = query.all()
-    return financial_records_schema.jsonify(records)
+    return jsonify([{
+        "id": r.id,
+        "amount": r.amount,
+        "type": r.type,
+        "category": r.category,
+        "date": r.date.strftime('%Y-%m-%d'),
+        "description": r.description
+    } for r in records])
 
-@app.route('/records/<int:id>', methods=['PATCH'])
+@app.route('/transactions/<int:id>', methods=['PUT']) # Changed to PUT as requested
 @admin_required # Only admin can update
-def update_record(id):
+def update_transaction(id):
     record = FinancialRecord.query.get_or_404(id)
     data = request.json
     try:
@@ -118,42 +140,73 @@ def update_record(id):
             record.category = data['category']
         if 'description' in data:
             record.description = data['description']
+        if 'date' in data:
+            record.date = datetime.fromisoformat(data['date'])
         db.session.commit()
         return financial_record_schema.jsonify(record)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/records/<int:id>', methods=['DELETE'])
+@app.route('/transactions/<int:id>', methods=['DELETE'])
 @admin_required # Only admin can delete
-def delete_record(id):
+def delete_transaction(id):
     record = FinancialRecord.query.get_or_404(id)
     db.session.delete(record)
     db.session.commit()
-    return jsonify({"message": "Record deleted successfully"}), 200
+    return jsonify({"message": "Transaction deleted successfully"}), 200
 
-# Dashboard Summary APIs (Analyst or Admin)
+# Dashboard Summary APIs (Viewer, Analyst, or Admin)
 @app.route('/dashboard/summary', methods=['GET'])
-@analyst_required
+@viewer_required # As per request, Viewer can call this
 def dashboard_summary():
     income = db.session.query(func.sum(FinancialRecord.amount)).filter(FinancialRecord.type == 'income').scalar() or 0
     expense = db.session.query(func.sum(FinancialRecord.amount)).filter(FinancialRecord.type == 'expense').scalar() or 0
     balance = income - expense
 
+    # Top Categories (Group by category, sum amount, order by sum desc)
     category_totals = db.session.query(
         FinancialRecord.category, 
         func.sum(FinancialRecord.amount)
-    ).group_by(FinancialRecord.category).all()
+    ).group_by(FinancialRecord.category).order_by(func.sum(FinancialRecord.amount).desc()).limit(5).all()
     
-    category_summary = {cat: total for cat, total in category_totals}
+    top_categories = [{"category": cat, "amount": total} for cat, total in category_totals]
 
-    recent_activity = FinancialRecord.query.order_by(FinancialRecord.date.desc()).limit(5).all()
+    # Recent Transactions
+    recent_transactions = FinancialRecord.query.order_by(FinancialRecord.date.desc()).limit(5).all()
+    recent_list = [{
+        "amount": r.amount,
+        "type": r.type,
+        "category": r.category,
+        "date": r.date.strftime('%Y-%m-%d')
+    } for r in recent_transactions]
+
+    # Monthly Trend (Group by Month)
+    # This is a bit more complex in SQLite, using strftime to get month
+    monthly_stats = db.session.query(
+        func.strftime('%m', FinancialRecord.date).label('month'),
+        func.sum(FinancialRecord.amount).filter(FinancialRecord.type == 'income').label('income'),
+        func.sum(FinancialRecord.amount).filter(FinancialRecord.type == 'expense').label('expense')
+    ).group_by(func.strftime('%m', FinancialRecord.date)).all()
+
+    month_names = {
+        '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+        '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug',
+        '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
+    }
+
+    monthly_trend = [{
+        "month": month_names.get(m, m),
+        "income": float(inc or 0),
+        "expense": float(exp or 0)
+    } for m, inc, exp in monthly_stats]
 
     return jsonify({
-        "total_income": income,
-        "total_expense": expense,
-        "net_balance": balance,
-        "category_summary": category_summary,
-        "recent_activity": financial_records_schema.dump(recent_activity)
+        "totalIncome": income,
+        "totalExpense": expense,
+        "netBalance": balance,
+        "topCategories": top_categories,
+        "recentTransactions": recent_list,
+        "monthlyTrend": monthly_trend
     })
 
 if __name__ == '__main__':

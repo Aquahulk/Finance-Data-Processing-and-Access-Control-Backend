@@ -1,60 +1,154 @@
-# Finance Data Processing and Access Control Backend
+# 📊 Finance Data Processing & RBAC Backend
 
-A Flask-based backend for a finance dashboard system with role-based access control (RBAC).
+A robust Flask-based backend for a finance dashboard system featuring **Role-Based Access Control (RBAC)**, transaction management, and automated financial insights.
 
-## Features
-- **User and Role Management**: Create and manage users with roles (`admin`, `analyst`, `viewer`) and status (`active`, `inactive`).
-- **Financial Records**: CRUD operations for transactions with filtering by date, category, and type.
-- **Role-Based Access Control (RBAC)**: Enforced through decorators on API endpoints.
-- **Dashboard Summary**: Aggregated financial data including total income, expenses, net balance, and category-wise totals.
-- **Input Validation**: Uses Marshmallow for data validation and SQLAlchemy for data persistence (SQLite).
+---
 
-## Roles and Permissions
-- **Admin**: Full access to all endpoints including user management and creating/updating records.
-- **Analyst**: Can view records and access dashboard summaries.
-- **Viewer**: Can only view financial records.
+## 🚀 Key Features
 
-## Setup Instructions
+- **Dashboard Summary**: Real-time aggregation of financial data (Income, Expense, Net Balance, Top Categories, Monthly Trends).
+- **Transaction Management**: Full CRUD operations for financial records with advanced filtering.
+- **User & Role Management**: Admin panel to manage users with specific roles and statuses.
+- **Strict RBAC**: Secure access control for Viewers, Analysts, and Admins.
+- **Data Validation**: Schema-based validation using Marshmallow.
+- **Persistent Storage**: SQLite database with SQLAlchemy ORM.
 
-1. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+---
 
-2. **Run the Application**:
-   ```bash
-   python app.py
-   ```
-   The application will start on `http://localhost:5000`.
+## 🛠️ Technology Stack
 
-3. **Authentication (Mock)**:
-   This project uses a custom header `X-User-ID` to simulate authentication.
-   An initial admin user is created on the first run with `id=1`.
-   - To act as an admin, include the header `X-User-ID: 1` in your requests.
+- **Framework**: Flask
+- **Database**: SQLite with Flask-SQLAlchemy
+- **Serialization**: Flask-Marshmallow
+- **CORS**: Flask-CORS
+- **Language**: Python 3.x
 
-## API Documentation
+---
 
-### Users (Admin only)
-- `GET /users`: List all users.
-- `POST /users`: Create a new user.
-- `PATCH /users/<id>`: Update a user's role or status.
+## 🚦 Getting Started
 
-### Financial Records
-- `GET /records`: List all records (Viewer, Analyst, Admin).
-  - Query parameters: `type`, `category`, `start_date`, `end_date`.
-- `POST /records`: Create a new record (Admin only).
-- `PATCH /records/<id>`: Update a record (Admin only).
-- `DELETE /records/<id>`: Delete a record (Admin only).
+### 1. Prerequisites
+Ensure you have Python 3.x installed on your system.
 
-### Dashboard Summary
-- `GET /dashboard/summary`: Get aggregated data (Analyst, Admin).
+### 2. Installation
+Clone the repository and install the required dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## Data Model
-- **User**: `id`, `username`, `password`, `role`, `status`, `created_at`.
-- **FinancialRecord**: `id`, `amount`, `type`, `category`, `date`, `description`, `created_by`.
+### 3. Run the Application
+Start the Flask development server:
+```bash
+python app.py
+```
+The API will be available at `http://localhost:5000`.
 
-## Technologies Used
-- **Python** & **Flask**
-- **Flask-SQLAlchemy** (SQLite)
-- **Flask-Marshmallow** (Validation)
-- **Flask-CORS**
+### 4. Authentication (Mock)
+This project uses a custom header `X-User-ID` to simulate authentication for development and testing.
+- An initial **Admin** user is seeded on the first run with `id=1`.
+- To act as an Admin, include the header `X-User-ID: 1` in your API requests.
+
+---
+
+## 🔐 Role-Based Access Control (RBAC)
+
+| Role | Access Level | Description |
+| :--- | :--- | :--- |
+| **Viewer** | Restricted | Can only view the Dashboard Summary. |
+| **Analyst** | Intermediate | Can view Dashboard Summary and the Transactions List. |
+| **Admin** | Full | Can access everything, including CRUD operations and User Management. |
+
+---
+
+## 📡 API Documentation
+
+### 1. Dashboard Summary (Most Important)
+Get a high-level overview of the financial health.
+- **Endpoint**: `GET /dashboard/summary`
+- **Access**: Viewer, Analyst, Admin
+- **Response**:
+```json
+{
+  "totalIncome": 50000,
+  "totalExpense": 30000,
+  "netBalance": 20000,
+  "topCategories": [
+    { "category": "Food", "amount": 10000 },
+    { "category": "Rent", "amount": 15000 }
+  ],
+  "recentTransactions": [
+    {
+      "amount": 2000,
+      "type": "expense",
+      "category": "Food",
+      "date": "2026-04-05"
+    }
+  ],
+  "monthlyTrend": [
+    { "month": "Jan", "income": 10000, "expense": 8000 },
+    { "month": "Feb", "income": 15000, "expense": 9000 }
+  ]
+}
+```
+
+### 2. Transactions List (With Filtering)
+Retrieve all financial records with optional filtering.
+- **Endpoint**: `GET /transactions`
+- **Access**: Analyst, Admin
+- **Example**: `/transactions?type=expense&category=Food&startDate=2026-01-01`
+- **Response**:
+```json
+[
+  {
+    "id": 1,
+    "amount": 500,
+    "type": "expense",
+    "category": "Food",
+    "date": "2026-04-01",
+    "description": "Lunch"
+  }
+]
+```
+
+### 3. Transaction CRUD Operations
+Modify financial data.
+- **Endpoints**:
+  - `POST /transactions`: Create a new record.
+  - `PUT /transactions/:id`: Update an existing record.
+  - `DELETE /transactions/:id`: Remove a record.
+- **Access**: Admin Only
+
+### 4. User Management
+Manage platform users and their roles.
+- **Endpoint**: `GET /users`
+- **Access**: Admin Only
+- **Response**:
+```json
+[
+  {
+    "id": 1,
+    "name": "Amit",
+    "role": "admin",
+    "status": "active"
+  }
+]
+```
+
+---
+
+## 🧪 Testing the API
+You can use tools like **Postman**, **Insomnia**, or **cURL** to test the endpoints. Remember to include the `X-User-ID` header.
+
+Example using cURL to get the dashboard summary as an Admin:
+```bash
+curl -H "X-User-ID: 1" http://localhost:5000/dashboard/summary
+```
+
+---
+
+## 📂 Project Structure
+- `app.py`: Main application entry point and routes.
+- `models.py`: SQLAlchemy database models.
+- `auth.py`: RBAC decorators and authentication logic.
+- `schemas.py`: Marshmallow validation schemas.
+- `requirements.txt`: Project dependencies.
